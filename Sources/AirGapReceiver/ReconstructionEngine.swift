@@ -156,6 +156,9 @@ public final class ReconstructionEngine: ObservableObject {
     }
 
     private func decompress(data: Data, expectedSize: Int) -> Data? {
+        let isXZ = data.starts(with: [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00])
+        let algorithm = isXZ ? COMPRESSION_LZMA : COMPRESSION_ZLIB
+
         let bufferSize = max(expectedSize, data.count * 10)
         var destinationData = Data(count: bufferSize)
 
@@ -167,7 +170,7 @@ public final class ReconstructionEngine: ObservableObject {
                     srcBuffer.bindMemory(to: UInt8.self).baseAddress!,
                     data.count,
                     nil,
-                    COMPRESSION_ZLIB
+                    algorithm
                 )
             }
         }
@@ -175,6 +178,25 @@ public final class ReconstructionEngine: ObservableObject {
         if decodedSize > 0 {
             return destinationData.prefix(decodedSize)
         }
+
+        // Fallback to the other algorithm if primary failed
+        let fallbackAlgorithm = isXZ ? COMPRESSION_ZLIB : COMPRESSION_LZMA
+        let fallbackSize = destinationData.withUnsafeMutableBytes { destBuffer in
+            data.withUnsafeBytes { srcBuffer in
+                compression_decode_buffer(
+                    destBuffer.bindMemory(to: UInt8.self).baseAddress!,
+                    bufferSize,
+                    srcBuffer.bindMemory(to: UInt8.self).baseAddress!,
+                    data.count,
+                    nil,
+                    fallbackAlgorithm
+                )
+            }
+        }
+        if fallbackSize > 0 {
+            return destinationData.prefix(fallbackSize)
+        }
+
         return nil
     }
 
