@@ -1,0 +1,30 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build Native iOS IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Compile Native ARM64 Mach-O Binary
+        run: |
+          swift build -c release --triple arm64-apple-ios16.0
+          mkdir -p Payload/AirGapReceiver.app
+          cp .build/arm64-apple-ios16.0/release/AirGapReceiver Payload/AirGapReceiver.app/
+          cp Info.plist Payload/AirGapReceiver.app/
+          zip -r AirGapReceiver_compiled.ipa Payload
+
+      - name: Upload Compiled IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirGapReceiver-Native-IPA
+          path: AirGapReceiver_compiled.ipa

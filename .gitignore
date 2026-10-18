@@ -1,0 +1,6 @@
+.build/
+.swiftpm/
+Payload/
+AirGapReceiver.ipa
+*.pyc
+__pycache__/
